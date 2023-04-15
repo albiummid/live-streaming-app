@@ -3,17 +3,35 @@ import { useAuthState } from '@/redux/features/auth/authSlice';
 import { useGetStreamQuery } from '@/redux/features/stream/streamAPI';
 import { peer } from '@/utils/PeerInstance';
 import socket from '@/utils/Socket';
+import { Affix, TextInput } from '@mantine/core';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import VideoPlayer from '../ui/VideoPlayer';
 
 export default function StreamRoom() {
     const router = useRouter();
+
+    const {roomId} = router.query
+    const {data:roomData} = useGetStreamQuery(roomId,{
+        skip:!roomId
+    });
     const {user} = useAuthState();
 
     const {getLocalMediaStream,localMediaStream} = useWebRTC();
+    const isHost = useMemo(()=>user?._id === roomData?.createdBy,[user,roomData]);
 
+    const streamConfigs = ()=>{
+      if(isHost){
+        return {
+          audio:true,
+          video:true,
+        }
+      }else{
+       return {audio:true,
+        video:true}
+      }
+    }
 
     const [peerId, setPeerId] = useState("");
     const [joined,setJoined] = useState(false);
@@ -21,16 +39,12 @@ export default function StreamRoom() {
     const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [isAudioEnabled, setIsAudioEnabled] = useState(false);
     const [localUserStream, setLocalUserStream] = useState(null);
-
     const [callList,setCallList] = useState([])
     const [answerList,setAnswerList] = useState([])
 
     
 
-    const {roomId} = router.query
-    const {data:roomData} = useGetStreamQuery(roomId,{
-        skip:!roomId
-    });
+ 
   
     useEffect(() => {
       getLocalMediaStream();
@@ -39,6 +53,7 @@ export default function StreamRoom() {
     useEffect(()=>{
       peer.once("open", (id) => {
         setPeerId(id);
+        toast.success(`You are connected with server !`)
         if(roomId && user){
           socket.emit("join-room", {
             roomId,
@@ -56,7 +71,7 @@ export default function StreamRoom() {
           }
 
           global.navigator.mediaDevices
-          .getUserMedia({ video: true, audio: true })
+          .getUserMedia(streamConfigs())
           .then((mediaStream) => {
             call.answer(mediaStream);
             // Sending my stream to remoteUser
@@ -85,10 +100,10 @@ export default function StreamRoom() {
           console.log(err, "error..");
         }
       });
-  return ()=>{
-peer.off('open')
-peer.off('call')
-  }
+        return ()=>{
+          peer.off('open')
+          peer.off('call')
+        }
     },[roomId,user,localMediaStream])
 
     async function call({ remotePeerId, remoteSocketId, user }) {
@@ -99,7 +114,7 @@ peer.off('call')
           }
     
           global.navigator.mediaDevices
-            .getUserMedia({ video: true, audio: true })
+            .getUserMedia(streamConfigs())
             .then((mediaStream) => {
               // calling the user
               const call = peer.call(remotePeerId, mediaStream)
@@ -138,50 +153,40 @@ peer.off('call')
     
 
     useEffect(() => {
-      socket.on(`user-joined-at-${roomId}`, (payload) => {
-        toast.success("A user joined !");
-        if (payload.data.success) {
-          if (payload.data.peerId != peerId) {
-            call({
-              remotePeerId: payload.data.peerId,
-              remoteSocketId: payload.data.socketId,
-              user: payload.data.user,
-            });
-          }else{
-            setJoined(true)
-          }
-        } else {
-          console.log(payload, "payload error... >");
-        }
-      });
-  
-      socket.on(`user-disconnected-from-${roomId}`, (payload) => {
-        // setRemoteStreams(prv=>prv.filter(x=>x.socketId !== payload.data.socketId))
-        setRemoteStreams([]);
-      });
+     
       return () => {
-        socket.off(`user-peer-joined-at-${roomId}`);
-        socket.off(`user-disconnected-from-${roomId}`);
+        socket.on(`user-joined-at-${roomId}`, (payload) => {
+          toast.success("A user joined !");
+          if (payload.data.success) {
+            if (payload.data.peerId != peerId) {
+              call({
+                remotePeerId: payload.data.peerId,
+                remoteSocketId: payload.data.socketId,
+                user: payload.data.user,
+              });
+            }
+          } else {
+            console.log(payload, "payload error... >");
+          }
+        });
+    
+        socket.on(`user-disconnected-from-${roomId}`, (payload) => {
+          // setRemoteStreams(prv=>prv.filter(x=>x.socketId !== payload.data.socketId))
+          setRemoteStreams([]);
+        });
       };
     }, [roomId, peerId]);
 
     
   return (
-    <main>
-        <h1>
-        Room ID: {roomData?._id}
-        </h1>
-        <h1>
-            PeerId: {peerId}
-        </h1>
-        <h1>
-            UserId: {user?._id}
-        </h1>
-        <section id='videos' className=" grid grid-cols-2 gap-5 place-items-center w-full">
+    <main >
+        <section id='videos' className=" grid grid-cols-1 gap-5 place-items-center w-full">
         <div>
-          <VideoPlayer stream={localMediaStream} />
-          <p>{"YOU"}</p>
+         {
+          isHost &&  <VideoPlayer stream={localMediaStream} />
+         }
         </div>
+       {!isHost &&  <>
         {remoteStreams?.map((x) => {
           return (
             <div key={x.peerId}>
@@ -190,7 +195,12 @@ peer.off('call')
             </div>
           );
         })}
+       </>}
       </section>
+
+      <Affix className='w-full' bottom={0}>
+        <TextInput className=" w-full"/>
+      </Affix>
     </main>
   );
 }

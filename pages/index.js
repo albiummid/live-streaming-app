@@ -1,3 +1,4 @@
+import BottomBar from "@/components/layouts/BottomBar";
 import { useGetStreamsQuery } from "@/redux/features/stream/streamAPI";
 import { useForm } from "@mantine/form";
 import Link from "next/link";
@@ -19,22 +20,35 @@ export default function HomePage() {
     limit: 100,
   });
 
+  const pStyle =
+    "p-2 font-semibold hover:border-black hover:cursor-pointer border border-transparent px-5 rounded-lg";
+
+  const renderBB = (
+    <>
+      <Link href={"/room/create-room/SingleStream"} className={pStyle}>
+        Live
+      </Link>
+      <Link href={"/room/create-room/MultiStream"} className={pStyle}>
+        Multi-Live
+      </Link>
+      <Link href={"/room/create-room/AudioStream"} className={pStyle}>
+        Audio Live
+      </Link>
+    </>
+  );
+
   return (
     <div className=" p-10">
       {/* <Button onClick={() => setOpen(true)}>Create Room</Button> */}
 
       <div className=" justify-center  items-center flex">
-        <section className=" grid grid-cols-2 gap-5 w-fit p-10 ">
+        <section className=" grid grid-cols-2 gap-5 w-fit  ">
           {streamRoomsRes?.streamRooms?.map((x, idx) => (
             <StreamCard {...x} key={x._id} idx={idx} />
           ))}
         </section>
       </div>
-
-      {/* <Modal opened={open} onClose={() => setOpen(false)}>
-        <TextInput label="Title" {...form.getInputProps("title")} />
-        <Select />
-      </Modal> */}
+      <BottomBar>{renderBB}</BottomBar>
     </div>
   );
 }

@@ -10,13 +10,12 @@ const baseQuery = fetchBaseQuery({
     if (deviceKey) {
       headers.set("device", deviceKey);
     }
-    if (user) {
-      headers.set("user", user?._id);
+    if (auth.user) {
+      headers.set("user", auth.user?._id);
     }
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("source", "admin.lulu.com");
     headers.set("device", "64089706a9bf3ff7f82b8f11");
-    headers.set("user", "6408b330f3c3f122108602c7");
     headers.set("session", "6408b330f3c3f122108602ca");
     //   const token = getState()?.auth?.accessToken
     //   if (token) {
